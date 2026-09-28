@@ -30,6 +30,7 @@ jobs:
       - run: npm audit --omit=dev --audit-level=critical
 
   deploy:
+    if: vars.DEPLOY_ENABLED == 'true'
     needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 15

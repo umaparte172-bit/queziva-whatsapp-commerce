@@ -49,6 +49,7 @@ Add this environment variable:
 | Variable | Example |
 |---|---|
 | `PRODUCTION_URL` | `https://orders.example.com` |
+| `DEPLOY_ENABLED` | Set to `true` only after the VPS, service and secrets are ready |
 
 Add these environment secrets:
 
