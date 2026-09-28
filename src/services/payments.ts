@@ -187,6 +187,29 @@ export type ConfirmOutcome =
   | { outcome: 'paid'; orderNumber: string }
   | { outcome: 'duplicate' | 'pending' | 'failed' | 'refunded' | 'unknown' };
 
+// SQLite has one database-wide writer. Concurrent interactive transactions that all acquire a
+// write lock can deadlock before Prisma's timeout, so local development and tests serialize
+// signals for one payment. Production PostgreSQL continues to use row-level locking below.
+const sqlitePaymentTails = new Map<string, Promise<void>>();
+
+async function serializeSQLitePayment<T>(paymentId: string, fn: () => Promise<T>): Promise<T> {
+  if (!env.DATABASE_URL.startsWith('file:')) return fn();
+  const previous = sqlitePaymentTails.get(paymentId) ?? Promise.resolve();
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const tail = previous.then(() => gate);
+  sqlitePaymentTails.set(paymentId, tail);
+  await previous;
+  try {
+    return await fn();
+  } finally {
+    release();
+    if (sqlitePaymentTails.get(paymentId) === tail) sqlitePaymentTails.delete(paymentId);
+  }
+}
+
 /** Finds our reference for a Razorpay payment: given directly, in its notes, or as its order's receipt. */
 async function resolveReference(rp: RazorpayPayment, hint?: string): Promise<string | undefined> {
   if (hint) return hint;
@@ -220,6 +243,10 @@ type Decision =
  * that same transaction, so a concurrent signal for it sees it as settled and does nothing.
  */
 export async function confirmPayment(input: { razorpayPaymentId: string; referenceId?: string; source: 'whatsapp' | 'razorpay' }): Promise<ConfirmOutcome> {
+  return serializeSQLitePayment(input.razorpayPaymentId, () => confirmPaymentUnlocked(input));
+}
+
+async function confirmPaymentUnlocked(input: { razorpayPaymentId: string; referenceId?: string; source: 'whatsapp' | 'razorpay' }): Promise<ConfirmOutcome> {
   const rp = await integrations().razorpay.fetchPayment(input.razorpayPaymentId);
   const referenceId = await resolveReference(rp, input.referenceId);
   const request = referenceId ? await prisma.payment.findUnique({ where: { referenceId } }) : null;
