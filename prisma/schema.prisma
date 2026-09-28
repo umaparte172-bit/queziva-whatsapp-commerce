@@ -1,0 +1,408 @@
+// Queziva WhatsApp Commerce – database schema
+//
+// Conventions
+// - All money is stored as integer paise (₹1 = 100). WhatsApp order_details uses the same unit.
+// - GST rates are stored in basis points (3% = 300).
+// - Local development uses SQLite. For production switch `provider` to "postgresql"
+//   and point DATABASE_URL at the Postgres instance (see README).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────
+
+enum OrderStatus {
+  NEW // received from WhatsApp cart, not yet opened by admin
+  PENDING_REVIEW // admin is reviewing stock
+  MODIFIED // admin changed items; not yet sent to customer
+  AWAITING_CUSTOMER_APPROVAL // revised order sent, waiting for Accept/Cancel
+  AWAITING_ADDRESS // approved; collecting delivery details
+  READY_FOR_PAYMENT // address + shipping calculated; admin final check
+  PAYMENT_REQUESTED // native order_details + Pay Now sent
+  PAID // payment verified server-side
+  PROCESSING // Shiprocket order/shipment created
+  SHIPPED // picked up / dispatched
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  COMPLETED
+  CANCELLED
+}
+
+enum Actor {
+  SYSTEM
+  ADMIN
+  CUSTOMER
+}
+
+enum OrderEventType {
+  CREATED
+  STATUS_CHANGED
+  ITEM_ADDED
+  ITEM_UPDATED
+  ITEM_REMOVED
+  ITEM_REPLACED
+  DISCOUNT_CHANGED
+  TOTALS_RECALCULATED
+  ADDRESS_UPDATED
+  SHIPPING_QUOTED
+  NOTE
+  MESSAGE_SENT
+  MESSAGE_RECEIVED
+  PAYMENT_EVENT
+  SHIPMENT_EVENT
+  ERROR
+}
+
+enum PaymentStatus {
+  CREATED // order_details sent, awaiting customer
+  PENDING // customer initiated, not final
+  CAPTURED // verified success
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+  CANCELLED // payment request withdrawn or expired before the customer paid
+  REFUND_PENDING // money must go back (order cancelled, or a payment that could not be applied); refund in progress
+  REFUND_FAILED // the refund call failed – shown to the team with a "Retry refund" action
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+  CANCELLED
+}
+
+// ─────────────────────────────────────────────────────────────
+// Catalogue & customers
+// ─────────────────────────────────────────────────────────────
+
+model Product {
+  id          String   @id @default(cuid())
+  sku         String   @unique
+  /// Content ID / retailer_id of the item in the Meta WhatsApp Catalogue
+  retailerId  String   @unique
+  name        String
+  description String?
+  imageUrl    String?
+  pricePaise  Int
+  stock       Int      @default(0)
+  gstRateBps  Int      @default(300)
+  hsnCode     String?
+  weightGrams Int      @default(100)
+  lengthCm    Float    @default(10)
+  breadthCm   Float    @default(10)
+  heightCm    Float    @default(5)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  orderItems OrderItem[]
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  /// WhatsApp ID (phone number in international format without '+', e.g. 919876543210)
+  waId      String   @unique
+  name      String?
+  /// Last message received from the customer. Free-form (non-template) messages are only
+  /// allowed within 24 hours of this – WhatsApp's customer service window.
+  lastInboundAt DateTime?
+  /// Last delivery address used, to prefill the WhatsApp address form next time
+  savedAddress  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders   Order[]
+  messages Message[]
+}
+
+// ─────────────────────────────────────────────────────────────
+// Orders
+// ─────────────────────────────────────────────────────────────
+
+model Order {
+  id            String      @id @default(cuid())
+  /// Reference assigned on receipt, e.g. RQ260928001 (used before payment)
+  requestNumber String      @unique
+  /// Final Queziva Order ID, assigned once payment is verified, e.g. QZ260928001
+  orderNumber   String?     @unique
+  status        OrderStatus @default(NEW)
+  /// Incremented on every write that changes status/amounts – used for optimistic locking
+  version       Int         @default(0)
+  /// How many times a revised order has been sent for customer approval. Carried in the
+  /// Accept/Cancel button ids so taps on an outdated version are rejected.
+  approvalRound Int         @default(0)
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+
+  // Source of the order
+  catalogId        String?
+  customerNote     String?
+  /// Raw inbound WhatsApp order payload, kept verbatim for audit
+  rawRequest       Json?
+  inboundMessageId String? @unique
+
+  // Amounts (paise)
+  subtotalPaise     Int     @default(0)
+  discountPaise     Int     @default(0)
+  discountReason    String?
+  shippingPaise     Int     @default(0)
+  taxPaise          Int     @default(0)
+  /// true = catalogue prices already include GST (taxPaise is informational)
+  pricesIncludeGst  Boolean @default(false)
+  totalPaise        Int     @default(0)
+  currency          String  @default("INR")
+
+  // Delivery details
+  shipName     String?
+  shipPhone    String?
+  shipHouse    String?
+  shipStreet   String?
+  shipLandmark String?
+  shipCity     String?
+  shipState    String?
+  shipPincode  String?
+
+  // Shipping quote (Shiprocket serviceability)
+  shippingCourierId   Int?
+  shippingCourierName String?
+  shippingEtdDays     Int?
+  shippingQuotedAt    DateTime?
+  /// What the courier charges the store (the customer pays shippingPaise, which rules may lower)
+  shippingCostPaise   Int?
+  /// How the customer shipping charge was decided, e.g. "Free shipping above ₹999" or an admin override
+  shippingNote        String?
+  packageWeightGrams  Int?
+
+  cancelReason String?
+
+  // Lifecycle timestamps
+  reviewStartedAt    DateTime?
+  approvedAt         DateTime?
+  paymentRequestedAt DateTime?
+  paidAt             DateTime?
+  processingAt       DateTime?
+  shippedAt          DateTime?
+  deliveredAt        DateTime?
+  completedAt        DateTime?
+  cancelledAt        DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items     OrderItem[]
+  events    OrderEvent[]
+  payments  Payment[]
+  shipments Shipment[]
+  messages  Message[]
+  jobs      ScheduledJob[]
+
+  @@index([status])
+  @@index([customerId])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id])
+
+  // Snapshot of product data at the time of the order
+  sku            String
+  retailerId     String
+  name           String
+  unitPricePaise Int
+  gstRateBps     Int
+
+  /// Quantity the customer asked for in their cart (0 for lines added by admin). Never changes.
+  requestedQuantity Int
+  /// Current approved quantity (0 when removed)
+  quantity          Int
+
+  addedByAdmin   Boolean @default(false)
+  removed        Boolean @default(false)
+  /// When this line replaces another product, points to the replaced line
+  replacesItemId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+}
+
+/// Append-only audit trail for everything that happens to an order
+model OrderEvent {
+  id         String         @id @default(cuid())
+  orderId    String
+  order      Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  type       OrderEventType
+  actor      Actor
+  /// Admin user id / WhatsApp id / job name
+  actorRef   String?
+  fromStatus OrderStatus?
+  toStatus   OrderStatus?
+  message    String?
+  data       Json?
+  createdAt  DateTime       @default(now())
+
+  @@index([orderId, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Payments & shipments
+// ─────────────────────────────────────────────────────────────
+
+model Payment {
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id])
+
+  provider          String        @default("razorpay")
+  /// reference_id sent in WhatsApp order_details (unique per payment request)
+  referenceId       String        @unique
+  razorpayOrderId   String?
+  razorpayPaymentId String?       @unique
+  amountPaise       Int
+  status            PaymentStatus @default(CREATED)
+  method            String?
+  failureReason     String?
+  refundedPaise     Int           @default(0)
+  razorpayRefundId  String?
+  /// wamid of the order_details message that carried this payment request
+  waMessageId       String?
+  verifiedAt        DateTime?
+  rawPayload        Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+}
+
+model Shipment {
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id])
+
+  shiprocketOrderId    String?
+  shiprocketShipmentId String? @unique
+  courierId            Int?
+  courierName          String?
+  awb                  String? @unique
+  trackingUrl          String?
+  /// Latest raw Shiprocket status label, e.g. "IN TRANSIT"
+  currentStatus        String?
+  lastEventAt          DateTime?
+  pickupRequestedAt    DateTime?
+  /// Milestones the customer has already been told about, e.g. ["SHIPPED","DELIVERED"]
+  notifiedMilestones   Json?
+  rawPayload           Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Messaging, webhooks, jobs
+// ─────────────────────────────────────────────────────────────
+
+model Message {
+  id         String           @id @default(cuid())
+  direction  MessageDirection
+  customerId String?
+  customer   Customer?        @relation(fields: [customerId], references: [id])
+  orderId    String?
+  order      Order?           @relation(fields: [orderId], references: [id])
+  /// WhatsApp message id (wamid.…)
+  waMessageId String?         @unique
+  type        String
+  payload     Json?
+  /// sent / delivered / read / failed (outbound) – received (inbound)
+  status      String?
+  error       String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([customerId, createdAt])
+  @@index([orderId])
+}
+
+/// Every inbound webhook is stored once; (source, externalId) makes processing idempotent
+model WebhookEvent {
+  id          String    @id @default(cuid())
+  source      String // whatsapp | razorpay | shiprocket
+  externalId  String
+  eventType   String?
+  payload     Json
+  processedAt DateTime?
+  error       String?
+  receivedAt  DateTime  @default(now())
+
+  @@unique([source, externalId])
+}
+
+model ScheduledJob {
+  id       String    @id @default(cuid())
+  type     String
+  orderId  String?
+  order    Order?    @relation(fields: [orderId], references: [id])
+  payload  Json?
+  runAt    DateTime
+  status   JobStatus @default(PENDING)
+  attempts Int       @default(0)
+  lastError String?
+  lockedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, runAt])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Admin & system
+// ─────────────────────────────────────────────────────────────
+
+model AdminUser {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  passwordHash String
+  active       Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+/// Atomic counters, e.g. daily order-number sequences ("QZ:260928")
+model Counter {
+  key   String @id
+  value Int
+}
+
+/// Admin-editable settings (notification toggles, message copy, etc.)
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}

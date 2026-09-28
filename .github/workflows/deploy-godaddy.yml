@@ -1,0 +1,82 @@
+name: Deploy to GoDaddy VPS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm audit --omit=dev --audit-level=critical
+
+  deploy:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Package release source
+        run: |
+          tar \
+            --exclude=.git \
+            --exclude=.env \
+            --exclude=node_modules \
+            --exclude=dist \
+            --exclude=admin/dist \
+            --exclude='prisma/*.db*' \
+            -czf "$RUNNER_TEMP/queziva-${GITHUB_SHA}.tgz" .
+
+      - name: Configure pinned SSH identity
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.GODADDY_VPS_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.GODADDY_VPS_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Upload release
+        env:
+          VPS_HOST: ${{ secrets.GODADDY_VPS_HOST }}
+          VPS_PORT: ${{ secrets.GODADDY_VPS_PORT }}
+          VPS_USER: ${{ secrets.GODADDY_VPS_USER }}
+        run: |
+          scp -P "$VPS_PORT" \
+            "$RUNNER_TEMP/queziva-${GITHUB_SHA}.tgz" \
+            "$VPS_USER@$VPS_HOST:/tmp/queziva-${GITHUB_SHA}.tgz"
+
+      - name: Activate release and verify health
+        env:
+          VPS_HOST: ${{ secrets.GODADDY_VPS_HOST }}
+          VPS_PORT: ${{ secrets.GODADDY_VPS_PORT }}
+          VPS_USER: ${{ secrets.GODADDY_VPS_USER }}
+          PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+        run: |
+          ssh -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" \
+            "bash -s -- '$GITHUB_SHA' '$PRODUCTION_URL'" < scripts/deploy-release.sh
