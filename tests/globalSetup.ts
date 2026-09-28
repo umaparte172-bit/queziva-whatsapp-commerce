@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const TEST_DB = fileURLToPath(new URL('../prisma/test.db', import.meta.url));
-const TEST_DB_URL = `file:${TEST_DB.replace(/\\/g, '/')}`;
+const TEST_DB_URL = `file:${TEST_DB.replace(/\\/g, '/')}?socket_timeout=20`;
 
 /**
  * Prepares the test database before the run.

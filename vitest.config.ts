@@ -3,7 +3,9 @@ import { defineConfig } from 'vitest/config';
 
 // Prisma's SQLite schema engine can fail without a useful error on Windows when the
 // datasource uses a relative file URL. Keep one absolute URL for the CLI and client.
-const sqliteTestUrl = `file:${fileURLToPath(new URL('./prisma/test.db', import.meta.url)).replace(/\\/g, '/')}`;
+// Give concurrent SQLite writes enough time to acquire its single-writer lock on CI.
+// Production uses PostgreSQL and still exercises true row-level concurrency there.
+const sqliteTestUrl = `file:${fileURLToPath(new URL('./prisma/test.db', import.meta.url)).replace(/\\/g, '/')}?socket_timeout=20`;
 
 export default defineConfig({
   test: {
