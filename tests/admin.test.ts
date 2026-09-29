@@ -289,13 +289,19 @@ describe('order review', () => {
 
 describe('order lists', () => {
   it('filters by status, search and stock issues, and counts per status', async () => {
+    await prisma.product.update({ where: { id: earrings.id }, data: { imageUrl: 'https://queziva.com/catalogue/QZ-EAR-001.jpg' } });
     const short = await placeOrder([{ retailerId: 'QZ-EAR-001', quantity: 2 }], '919000000001');
     const fine = await placeOrder([{ retailerId: 'QZ-RNG-001', quantity: 1 }], '919000000002');
     await api('POST', `/orders/${fine.id}/actions/approve`, { expectedVersion: fine.version });
 
     const all = (await api('GET', '/orders')).body;
     expect(all.total).toBe(2);
-    expect(all.orders.find((o: any) => o.id === short.id)).toMatchObject({ stockIssue: true, itemsSummary: 'Pearl Drop Earrings × 2' });
+    expect(all.orders.find((o: any) => o.id === short.id)).toMatchObject({
+      stockIssue: true,
+      itemsSummary: 'Pearl Drop Earrings × 2',
+      itemImages: [{ name: 'Pearl Drop Earrings', imageUrl: 'https://queziva.com/catalogue/QZ-EAR-001.jpg' }],
+    });
+    expect((await api('GET', `/orders/${short.id}`)).body.items[0].imageUrl).toBe('https://queziva.com/catalogue/QZ-EAR-001.jpg');
 
     expect((await api('GET', '/orders?status=NEW,PENDING_REVIEW')).body.orders.map((o: any) => o.id)).toEqual([short.id]);
     expect((await api('GET', '/orders?stockIssues=1')).body.orders.map((o: any) => o.id)).toEqual([short.id]);

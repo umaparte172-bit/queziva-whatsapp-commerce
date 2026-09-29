@@ -557,7 +557,7 @@ export async function listOrders(query: OrderListQuery) {
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], // stable paging when requests arrive together
       skip: (query.page - 1) * query.pageSize,
       take: query.pageSize,
-      include: { customer: true, items: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] } },
+      include: { customer: true, items: { include: { product: true }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] } },
     }),
   ]);
 
@@ -566,7 +566,7 @@ export async function listOrders(query: OrderListQuery) {
     page: query.page,
     pageSize: query.pageSize,
     orders: orders.map((o) => {
-      const items = activeItems(o.items);
+      const items = o.items.filter((item) => !item.removed && item.quantity > 0);
       return {
         id: o.id,
         requestNumber: o.requestNumber,
@@ -575,6 +575,7 @@ export async function listOrders(query: OrderListQuery) {
         version: o.version,
         customer: { name: o.customer.name, waId: o.customer.waId },
         itemsSummary: items.map((i) => `${i.name} × ${i.quantity}`).join(', '),
+        itemImages: items.slice(0, 3).map((i) => ({ name: i.name, imageUrl: i.product?.imageUrl ?? null })),
         itemCount: items.reduce((n, i) => n + i.quantity, 0),
         totalPaise: o.totalPaise,
         modified: isModifiedFromRequest(o.items),
@@ -624,6 +625,7 @@ export async function orderDetail(orderId: string) {
     items: order.items.map((i) => ({
       ...i,
       product: undefined,
+      imageUrl: i.product?.imageUrl ?? null,
       availableStock: i.product?.stock ?? null,
       productActive: i.product?.active ?? false,
       stockIssue: problems.some((p) => p.itemId === i.id),

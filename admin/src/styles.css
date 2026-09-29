@@ -228,6 +228,9 @@ th.num, td.num { text-align: right; }
 .product-image-picker { height: 30px; }
 .product-image-help { max-width: 290px; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .product-image-clear { font-size: 12px; }
+.order-list-items { display: flex; align-items: center; gap: 10px; }
+.order-list-thumbnails { display: flex; flex: 0 0 auto; padding-left: 8px; }
+.order-list-thumbnails .product-thumb { margin-left: -8px; box-shadow: 0 0 0 2px var(--surface); }
 .empty { padding: 48px 16px; text-align: center; color: var(--text-3); }
 
 /* ── Alerts ───────────────────────────────────────── */

@@ -29,6 +29,7 @@ export interface OrderListItem {
   version: number;
   customer: { name: string | null; waId: string };
   itemsSummary: string;
+  itemImages: { name: string; imageUrl: string | null }[];
   itemCount: number;
   totalPaise: number;
   modified: boolean;
@@ -55,6 +56,7 @@ export interface OrderItem {
   sku: string;
   retailerId: string;
   name: string;
+  imageUrl: string | null;
   unitPricePaise: number;
   gstRateBps: number;
   requestedQuantity: number;

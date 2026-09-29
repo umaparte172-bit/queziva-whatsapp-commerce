@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
-import { StatusBadge, useToast } from '../components';
+import { ProductThumbnail, StatusBadge, useToast } from '../components';
 import { ago, inr, phone } from '../format';
 import { navigate } from '../router';
 import type { OrderList, OrderStatus, OrderSummary } from '../types';
@@ -160,10 +160,19 @@ export function OrdersPage({ summary }: { summary: OrderSummary | null }) {
                     <div className="cell-sub">{phone(o.customer.waId)}</div>
                   </td>
                   <td style={{ maxWidth: 340 }}>
-                    <div>{o.itemsSummary || <span className="faint">No items</span>}</div>
-                    <div className="row" style={{ marginTop: 4 }}>
-                      {o.stockIssue && <span className="tag warn">Stock issue</span>}
-                      {o.modified && <span className="tag brand">Changed by admin</span>}
+                    <div className="order-list-items">
+                      {o.itemImages.length > 0 && (
+                        <div className="order-list-thumbnails" aria-label="Product images">
+                          {o.itemImages.map((item, index) => <ProductThumbnail key={`${item.name}-${index}`} imageUrl={item.imageUrl} name={item.name} size="sm" />)}
+                        </div>
+                      )}
+                      <div>
+                        <div>{o.itemsSummary || <span className="faint">No items</span>}</div>
+                        <div className="row" style={{ marginTop: 4 }}>
+                          {o.stockIssue && <span className="tag warn">Stock issue</span>}
+                          {o.modified && <span className="tag brand">Changed by admin</span>}
+                        </div>
+                      </div>
                     </div>
                   </td>
                   <td className="num">{inr(o.totalPaise)}</td>

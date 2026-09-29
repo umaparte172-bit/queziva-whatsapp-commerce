@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError } from '../api';
-import { Dialog, ProductPicker, StatusBadge, useToast } from '../components';
+import { Dialog, ProductPicker, ProductThumbnail, StatusBadge, useToast } from '../components';
 import { ago, inr, parseRupees, phone, rupeesInput, STATUS_LABELS, when } from '../format';
 import type { AddressInput, OrderAction, OrderDetail, OrderEvent, OrderItem, Product, ShippingOptions } from '../types';
 
@@ -315,13 +315,18 @@ function ItemRow(props: {
     <>
       <tr className={item.removed ? 'removed' : ''}>
         <td>
-          <div className={`cell-title ${item.removed ? 'strike' : ''}`}>{item.name}</div>
-          <div className="row" style={{ marginTop: 2 }}>
-            <span className="cell-sub mono">{item.sku}</span>
-            {item.removed && <span className="tag">Removed</span>}
-            {item.addedByAdmin && !replaced && <span className="tag brand">Added by admin</span>}
-            {replaced && <span className="tag brand">Replaces {replaced.name}</span>}
-            {changed && <span className="tag brand">Changed</span>}
+          <div className="product-identity">
+            <ProductThumbnail imageUrl={item.imageUrl} name={item.name} />
+            <div>
+              <div className={`cell-title ${item.removed ? 'strike' : ''}`}>{item.name}</div>
+              <div className="row" style={{ marginTop: 2 }}>
+                <span className="cell-sub mono">{item.sku}</span>
+                {item.removed && <span className="tag">Removed</span>}
+                {item.addedByAdmin && !replaced && <span className="tag brand">Added by admin</span>}
+                {replaced && <span className="tag brand">Replaces {replaced.name}</span>}
+                {changed && <span className="tag brand">Changed</span>}
+              </div>
+            </div>
           </div>
         </td>
         <td className="num">{item.requestedQuantity || <span className="faint">—</span>}</td>
