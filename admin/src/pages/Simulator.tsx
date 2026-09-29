@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { api } from '../api';
-import { BrandMark, StatusBadge, useToast } from '../components';
+import { BrandMark, Pagination, StatusBadge, useToast } from '../components';
 import { inr } from '../format';
 import type { SimMessage, SimulatorState } from '../types';
 
@@ -471,14 +471,28 @@ function CustomerPanel(props: {
 }
 
 function CartPanel({ state, busy, onSend }: { state: SimulatorState | null; busy: boolean; onSend: (items: { retailerId: string; quantity: number }[]) => void }) {
+  const pageSize = 10;
   const [qty, setQty] = useState<Record<string, number>>({});
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const matches = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return (state?.catalog ?? []).filter((p) => !q || p.name.toLowerCase().includes(q) || p.retailerId.toLowerCase().includes(q));
+  }, [state?.catalog, query]);
+  const pages = Math.max(1, Math.ceil(matches.length / pageSize));
+  useEffect(() => setPage(1), [query]);
+  useEffect(() => setPage((current) => Math.min(current, pages)), [pages]);
+  const visibleProducts = matches.slice((page - 1) * pageSize, page * pageSize);
   const items = Object.entries(qty)
     .filter(([, q]) => q > 0)
     .map(([retailerId, quantity]) => ({ retailerId, quantity }));
   return (
     <div className="card">
-      <div className="card-head">
-        <h2>WhatsApp catalogue</h2>
+      <div className="card-head catalog-head">
+        <div>
+          <h2>WhatsApp catalogue</h2>
+          <div className="cell-sub">{matches.length} product{matches.length === 1 ? '' : 's'}</div>
+        </div>
         <button
           className="btn btn-primary btn-sm"
           disabled={busy || items.length === 0}
@@ -491,7 +505,15 @@ function CartPanel({ state, busy, onSend }: { state: SimulatorState | null; busy
         </button>
       </div>
       <div className="card-body">
-        {state?.catalog.map((p) => (
+        <input
+          className="input catalog-search"
+          type="search"
+          placeholder="Search name or SKU…"
+          aria-label="Search simulator catalogue"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        {visibleProducts.map((p) => (
           <div className="catalog-row" key={p.retailerId}>
             <span>
               <span className="cell-title">{p.name}</span>
@@ -511,10 +533,12 @@ function CartPanel({ state, busy, onSend }: { state: SimulatorState | null; busy
             <span className="num muted">{qty[p.retailerId] ? inr(p.pricePaise * qty[p.retailerId]!) : ''}</span>
           </div>
         ))}
+        {state && matches.length === 0 && <div className="empty compact">No matching products.</div>}
         <p className="faint" style={{ marginBottom: 0 }}>
           Tip: order more than is in stock to try the “only 1 available” flow.
         </p>
       </div>
+      <Pagination page={page} pageSize={pageSize} total={matches.length} onPage={setPage} />
     </div>
   );
 }

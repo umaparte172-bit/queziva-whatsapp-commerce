@@ -1,15 +1,17 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { api } from '../api';
-import { Dialog, useToast } from '../components';
+import { Dialog, Pagination, useToast } from '../components';
 import { inr, parseRupees, rupeesInput } from '../format';
 import type { Product, ProductInput } from '../types';
 
 export function ProductsPage() {
+  const pageSize = 20;
   const toast = useToast();
   const [products, setProducts] = useState<Product[] | null>(null);
   const [search, setSearch] = useState('');
   const [showInactive, setShowInactive] = useState(false);
   const [editing, setEditing] = useState<Product | 'new' | null>(null);
+  const [page, setPage] = useState(1);
 
   const load = useCallback(
     () =>
@@ -25,6 +27,12 @@ export function ProductsPage() {
     return () => clearTimeout(t);
   }, [load]);
 
+  useEffect(() => setPage(1), [search, showInactive]);
+  const total = products?.length ?? 0;
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+  useEffect(() => setPage((current) => Math.min(current, pages)), [pages]);
+  const visibleProducts = useMemo(() => products?.slice((page - 1) * pageSize, page * pageSize), [products, page]);
+
   const update = async (p: Product, change: Partial<ProductInput>, message: string): Promise<boolean> => {
     try {
       const { product } = await api.updateProduct(p.id, change);
@@ -39,9 +47,9 @@ export function ProductsPage() {
 
   return (
     <>
-      <div className="page-head">
+      <div className="page-head products-head">
         <h1>Products &amp; stock</h1>
-        <div className="row">
+        <div className="row products-tools">
           <input className="input search" type="search" placeholder="Search name or SKU…" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search products" />
           <label className="row muted" style={{ gap: 6 }}>
             <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
@@ -59,7 +67,7 @@ export function ProductsPage() {
 
       <div className="card">
         <div className="table-wrap">
-          <table>
+          <table className="product-table">
             <thead>
               <tr>
                 <th>Product</th>
@@ -72,27 +80,27 @@ export function ProductsPage() {
               </tr>
             </thead>
             <tbody>
-              {products?.map((p) => (
+              {visibleProducts?.map((p) => (
                 <tr key={p.id}>
-                  <td>
+                  <td data-label="Product">
                     <div className={`cell-title ${p.active ? '' : 'strike'}`}>{p.name}</div>
                     <div className="cell-sub mono">
                       {p.sku}
                       {p.retailerId !== p.sku && <> · catalogue {p.retailerId}</>}
                     </div>
                   </td>
-                  <td className="num">{inr(p.pricePaise)}</td>
-                  <td className="num">
+                  <td className="num" data-label="Price">{inr(p.pricePaise)}</td>
+                  <td className="num" data-label="Stock">
                     <StockInput product={p} onSave={(stock) => update(p, { stock }, `${p.name}: stock set to ${stock}`)} />
                   </td>
-                  <td className="num muted">{p.gstRateBps / 100}%</td>
-                  <td className="num muted">{p.weightGrams} g</td>
-                  <td>
+                  <td className="num muted" data-label="GST">{p.gstRateBps / 100}%</td>
+                  <td className="num muted" data-label="Weight">{p.weightGrams} g</td>
+                  <td data-label="Status">
                     <button className="btn-link" onClick={() => update(p, { active: !p.active }, `${p.name} ${p.active ? 'deactivated' : 'activated'}`)}>
                       {p.active ? <span className="tag">Active</span> : <span className="tag warn">Inactive</span>}
                     </button>
                   </td>
-                  <td className="num">
+                  <td className="num product-actions" data-label="Actions">
                     <button className="btn-link" onClick={() => setEditing(p)}>
                       Edit
                     </button>
@@ -104,6 +112,7 @@ export function ProductsPage() {
           {products?.length === 0 && <div className="empty">No products found.</div>}
           {!products && <div className="empty">Loading products…</div>}
         </div>
+        <Pagination page={page} pageSize={pageSize} total={total} onPage={setPage} />
       </div>
 
       {editing && (

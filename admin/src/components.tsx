@@ -43,6 +43,33 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
 export const useToast = () => useContext(ToastContext);
 
+export function Pagination({
+  page,
+  pageSize,
+  total,
+  onPage,
+}: {
+  page: number;
+  pageSize: number;
+  total: number;
+  onPage: (page: number) => void;
+}) {
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+  if (total <= pageSize) return null;
+  const first = (page - 1) * pageSize + 1;
+  const last = Math.min(page * pageSize, total);
+  return (
+    <nav className="pager" aria-label="Pagination">
+      <span className="muted">Showing {first}–{last} of {total}</span>
+      <div className="row pager-actions">
+        <button className="btn btn-sm" disabled={page <= 1} onClick={() => onPage(page - 1)}>← Previous</button>
+        <span className="pager-page" aria-live="polite">Page {page} of {pages}</span>
+        <button className="btn btn-sm" disabled={page >= pages} onClick={() => onPage(page + 1)}>Next →</button>
+      </div>
+    </nav>
+  );
+}
+
 // ── Dialog ─────────────────────────────────────────────────
 export function Dialog({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
   useEffect(() => {
