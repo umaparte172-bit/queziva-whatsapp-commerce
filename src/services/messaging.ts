@@ -70,7 +70,7 @@ function summarise(m: OutboundMessage): string {
     case 'address':
       return m.body;
     case 'image':
-      return `${m.caption ?? 'Product image'} [${m.imageUrl}]`;
+      return m.caption ?? 'Product image';
     case 'buttons':
       return `${m.body} [${m.buttons.map((b) => b.title).join(' | ')}]`;
     case 'cta_url':
@@ -122,7 +122,11 @@ export async function sendToCustomer(opts: SendOptions, db: Db = prisma): Promis
         orderId,
         type: 'MESSAGE_SENT',
         message: summarise(message).slice(0, 500),
-        data: { waMessageId: result.messageId, kind: message.kind },
+        data: {
+          waMessageId: result.messageId,
+          kind: message.kind,
+          ...(message.kind === 'image' ? { imageUrl: message.imageUrl } : {}),
+        },
       });
     }
     return result;

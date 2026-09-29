@@ -107,6 +107,9 @@ describe('POST /webhooks/whatsapp', () => {
       ['INBOUND', 'order', order.id],
       ['OUTBOUND', 'image', order.id],
     ]);
+    const imageEvent = await prisma.orderEvent.findFirstOrThrow({ where: { orderId: order.id, type: 'MESSAGE_SENT' } });
+    expect(imageEvent.data).toMatchObject({ kind: 'image', imageUrl: 'https://queziva.com/catalogue/QZ-EAR-001.jpg' });
+    expect(imageEvent.message).not.toContain('[https://');
   });
 
   it('ignores a redelivered webhook (one order, one acknowledgement)', async () => {

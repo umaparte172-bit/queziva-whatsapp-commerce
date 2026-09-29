@@ -260,6 +260,7 @@ th.num, td.num { text-align: right; }
 .timeline li.customer::before { background: var(--tone-review-fg); }
 .timeline li.error::before { background: var(--danger); }
 .timeline .meta { font-size: 12px; color: var(--text-3); }
+.timeline-product-image { display: block; width: 96px; height: 96px; object-fit: cover; margin: 0 0 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); }
 
 /* ── Picker ───────────────────────────────────────── */
 .picker { position: relative; }

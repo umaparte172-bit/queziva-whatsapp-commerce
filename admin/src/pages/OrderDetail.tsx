@@ -879,7 +879,14 @@ function describe(e: OrderEvent): string {
     return e.message ? `${to} — ${e.message}` : `Moved to ${to}`;
   }
   if (e.type === 'CREATED') return e.message ?? 'Order received';
-  return e.message ?? e.type.replace(/_/g, ' ').toLowerCase();
+  const message = e.message ?? e.type.replace(/_/g, ' ').toLowerCase();
+  return historyImage(e) ? message.replace(/\s*\[https:\/\/[^\]]+\]\s*$/, '') : message;
+}
+
+function historyImage(e: OrderEvent): string | null {
+  if (e.data?.imageUrl?.startsWith('https://')) return e.data.imageUrl;
+  if (e.type !== 'MESSAGE_SENT') return null;
+  return e.message?.match(/\[(https:\/\/[^\]]+\.(?:jpe?g|png|webp)(?:\?[^\]]*)?)\]\s*$/i)?.[1] ?? null;
 }
 
 function actorLabel(e: OrderEvent): string {
@@ -902,14 +909,18 @@ function HistoryCard({ events }: { events: OrderEvent[] }) {
       </div>
       <div className="card-body">
         <ul className="timeline">
-          {visible.map((e) => (
-            <li key={e.id} className={e.type === 'ERROR' ? 'error' : e.actor.toLowerCase()}>
-              <div style={{ whiteSpace: 'pre-line' }}>{describe(e)}</div>
-              <div className="meta">
-                {actorLabel(e)} · {when(e.createdAt)}
-              </div>
-            </li>
-          ))}
+          {visible.map((e) => {
+            const imageUrl = historyImage(e);
+            return (
+              <li key={e.id} className={e.type === 'ERROR' ? 'error' : e.actor.toLowerCase()}>
+                {imageUrl && <img className="timeline-product-image" src={imageUrl} alt="Product" loading="lazy" />}
+                <div style={{ whiteSpace: 'pre-line' }}>{describe(e)}</div>
+                <div className="meta">
+                  {actorLabel(e)} · {when(e.createdAt)}
+                </div>
+              </li>
+            );
+          })}
         </ul>
       </div>
     </div>

@@ -78,6 +78,7 @@ export interface OrderEvent {
   fromStatus: OrderStatus | null;
   toStatus: OrderStatus | null;
   message: string | null;
+  data: { kind?: string; imageUrl?: string } | null;
   createdAt: string;
 }
 
