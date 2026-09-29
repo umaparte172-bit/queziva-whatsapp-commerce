@@ -25,6 +25,7 @@ cd "$release_dir"
 npm ci
 npm run build:prod
 npm run db:deploy
+npm run db:seed
 
 ln -sfn "$release_dir" "$deploy_root/current.next"
 mv -Tf "$deploy_root/current.next" "$deploy_root/current"

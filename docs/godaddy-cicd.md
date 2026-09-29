@@ -70,8 +70,9 @@ Add these environment secrets:
 2. installs exact lockfile dependencies in an immutable release directory;
 3. builds with the PostgreSQL Prisma client;
 4. applies committed migrations;
-5. atomically moves `/opt/queziva/current` to the new release;
-6. restarts `queziva` and checks the public `/health` endpoint.
+5. runs the idempotent production seed to create the first configured admin;
+6. atomically moves `/opt/queziva/current` to the new release;
+7. restarts `queziva` and checks the public `/health` endpoint.
 
 Releases are retained for manual rollback. To roll back application code, point `current` at a
 previous release and restart the service. Database migrations must remain backward-compatible;
