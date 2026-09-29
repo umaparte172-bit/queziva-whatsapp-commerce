@@ -210,7 +210,7 @@ export interface SimMessage {
 export interface SimulatorState {
   customer: { waId: string; name: string | null } | null;
   customers: { waId: string; name: string | null }[];
-  catalog: { retailerId: string; name: string; pricePaise: number; stock: number }[];
+  catalog: { retailerId: string; name: string; imageUrl: string | null; pricePaise: number; stock: number }[];
   messages: SimMessage[];
   order: { id: string; requestNumber: string; orderNumber: string | null; status: OrderStatus; awb: string | null; canPay: boolean } | null;
   courierStatuses: string[];

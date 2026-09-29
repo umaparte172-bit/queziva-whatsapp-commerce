@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { api } from '../api';
-import { BrandMark, Pagination, StatusBadge, useToast } from '../components';
+import { BrandMark, Pagination, ProductThumbnail, StatusBadge, useToast } from '../components';
 import { inr } from '../format';
 import type { SimMessage, SimulatorState } from '../types';
 
@@ -515,11 +515,15 @@ function CartPanel({ state, busy, onSend }: { state: SimulatorState | null; busy
         />
         {visibleProducts.map((p) => (
           <div className="catalog-row" key={p.retailerId}>
-            <span>
-              <span className="cell-title">{p.name}</span>
-              <div className="cell-sub">
-                {inr(p.pricePaise)} · {p.stock} in stock
-              </div>
+            <span className="product-identity">
+              <ProductThumbnail imageUrl={p.imageUrl} name={p.name} size="sm" />
+              <span>
+                <span className="cell-title">{p.name}</span>
+                <span className="cell-sub catalog-sku">{p.retailerId}</span>
+                <div className="cell-sub">
+                  {inr(p.pricePaise)} · {p.stock} in stock
+                </div>
+              </span>
             </span>
             <span className="qty">
               <button className="icon-btn" aria-label={`Fewer ${p.name}`} onClick={() => setQty({ ...qty, [p.retailerId]: Math.max(0, (qty[p.retailerId] ?? 0) - 1) })}>

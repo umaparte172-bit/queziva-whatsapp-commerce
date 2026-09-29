@@ -165,7 +165,7 @@ export async function simulatorState(waId: string) {
   return {
     customer: customer && { waId: customer.waId, name: customer.name },
     customers: simCustomers.filter((c) => isSimulatorNumber(c.waId)).map((c) => ({ waId: c.waId, name: c.name })),
-    catalog: products.map((p) => ({ retailerId: p.retailerId, name: p.name, pricePaise: p.pricePaise, stock: p.stock })),
+    catalog: products.map((p) => ({ retailerId: p.retailerId, name: p.name, imageUrl: p.imageUrl, pricePaise: p.pricePaise, stock: p.stock })),
     messages: messages.map((m) => ({
       id: m.id,
       direction: m.direction,

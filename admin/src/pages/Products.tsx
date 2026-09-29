@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { api } from '../api';
-import { Dialog, Pagination, useToast } from '../components';
+import { Dialog, Pagination, ProductThumbnail, useToast } from '../components';
 import { inr, parseRupees, rupeesInput } from '../format';
 import type { Product, ProductInput } from '../types';
 
@@ -83,10 +83,15 @@ export function ProductsPage() {
               {visibleProducts?.map((p) => (
                 <tr key={p.id}>
                   <td data-label="Product">
-                    <div className={`cell-title ${p.active ? '' : 'strike'}`}>{p.name}</div>
-                    <div className="cell-sub mono">
-                      {p.sku}
-                      {p.retailerId !== p.sku && <> · catalogue {p.retailerId}</>}
+                    <div className="product-identity">
+                      <ProductThumbnail imageUrl={p.imageUrl} name={p.name} />
+                      <div>
+                        <div className={`cell-title ${p.active ? '' : 'strike'}`}>{p.name}</div>
+                        <div className="cell-sub mono">
+                          {p.sku}
+                          {p.retailerId !== p.sku && <> · catalogue {p.retailerId}</>}
+                        </div>
+                      </div>
                     </div>
                   </td>
                   <td className="num" data-label="Price">{inr(p.pricePaise)}</td>
@@ -167,6 +172,7 @@ function ProductForm({ product, onClose, onSaved }: { product: Product | null; o
     sku: product?.sku ?? '',
     retailerId: product?.retailerId ?? '',
     name: product?.name ?? '',
+    imageUrl: product?.imageUrl ?? '',
     price: product ? rupeesInput(product.pricePaise) : '',
     stock: String(product?.stock ?? 0),
     gst: String((product?.gstRateBps ?? 300) / 100),
@@ -194,6 +200,7 @@ function ProductForm({ product, onClose, onSaved }: { product: Product | null; o
       sku: form.sku.trim(),
       retailerId: form.retailerId.trim() || undefined,
       name: form.name.trim(),
+      imageUrl: form.imageUrl.trim() || null,
       pricePaise,
       stock: Number(form.stock),
       gstRateBps: Math.round(Number(form.gst) * 100),
@@ -230,6 +237,10 @@ function ProductForm({ product, onClose, onSaved }: { product: Product | null; o
         <div className="field">
           <label htmlFor="p-name">Name</label>
           <input id="p-name" className="input" required value={form.name} onChange={set('name')} autoFocus />
+        </div>
+        <div className="field">
+          <label htmlFor="p-image">Image URL</label>
+          <input id="p-image" className="input" type="url" placeholder="https://queziva.com/catalogue/SKU.jpg" value={form.imageUrl} onChange={set('imageUrl')} />
         </div>
         <div className="row" style={{ alignItems: 'flex-start' }}>
           <div className="field" style={{ flex: 1 }}>

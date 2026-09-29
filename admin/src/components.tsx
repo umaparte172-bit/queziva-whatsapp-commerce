@@ -16,6 +16,17 @@ export function StatusBadge({ status }: { status: OrderStatus }) {
   return <span className={`badge tone-${STATUS_TONE[status]}`}>{STATUS_LABELS[status]}</span>;
 }
 
+export function ProductThumbnail({ imageUrl, name, size = 'md' }: { imageUrl: string | null; name: string; size?: 'sm' | 'md' }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [imageUrl]);
+  const fallback = name.trim().charAt(0).toUpperCase() || 'Q';
+  return (
+    <span className={`product-thumb product-thumb-${size}`} aria-hidden="true">
+      {imageUrl && !failed ? <img src={imageUrl} alt="" loading="lazy" onError={() => setFailed(true)} /> : <span>{fallback}</span>}
+    </span>
+  );
+}
+
 // ── Toasts ─────────────────────────────────────────────────
 type Toast = { id: number; message: string; tone: 'info' | 'error' };
 const ToastContext = createContext<(message: string, tone?: Toast['tone']) => void>(() => {});
