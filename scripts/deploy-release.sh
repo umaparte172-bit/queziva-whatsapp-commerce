@@ -26,6 +26,8 @@ npm ci
 npm run build:prod
 npm run db:deploy
 npm run db:seed
+npx tsx scripts/import-catalogue.ts 'docs/Queziva_Product Catalogue_Inventory_1_Developer.xlsx' \
+  "--image-base-url=${production_url%/}/catalogue"
 
 ln -sfn "$release_dir" "$deploy_root/current.next"
 mv -Tf "$deploy_root/current.next" "$deploy_root/current"

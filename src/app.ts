@@ -44,6 +44,19 @@ export function createApp() {
   app.use(trackingWebhookRouter);
   app.use('/api/admin', adminApiRouter);
 
+  // Public product photography used by the admin dashboard and catalogue exports.
+  const catalogueImages = path.resolve(process.cwd(), 'public', 'catalogue');
+  if (existsSync(catalogueImages)) {
+    app.use(
+      '/catalogue',
+      express.static(catalogueImages, {
+        immutable: true,
+        maxAge: '30d',
+        fallthrough: false,
+      }),
+    );
+  }
+
   // Admin dashboard (built with `npm run admin:build`)
   const adminDist = path.resolve(process.cwd(), 'admin', 'dist');
   if (existsSync(adminDist)) {

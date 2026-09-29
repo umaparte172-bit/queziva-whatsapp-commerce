@@ -10,7 +10,8 @@ import { PrismaClient } from '@prisma/client';
  * database, matched by SKU. Existing products are updated in place; stock is left untouched on
  * update, since it's managed from the dashboard as sales happen, not from the spreadsheet.
  *
- * Usage: npx tsx scripts/import-catalogue.ts <path-to.xlsx> [--gst-bps=0] [--dry-run]
+ * Usage: npx tsx scripts/import-catalogue.ts <path-to.xlsx> [--gst-bps=0]
+ *   [--image-base-url=https://queziva.com/catalogue] [--dry-run]
  *
  * Requires the `unzip` command (an .xlsx is a zip file); present on Linux/macOS and in Git Bash
  * on Windows, which is what this project's tooling already assumes.
@@ -80,9 +81,14 @@ async function main() {
   const xlsxPath = args.find((a) => !a.startsWith('--'));
   const dryRun = args.includes('--dry-run');
   const gstArg = args.find((a) => a.startsWith('--gst-bps='));
+  const imageBaseArg = args.find((a) => a.startsWith('--image-base-url='));
+  const imageBaseUrl = imageBaseArg?.slice('--image-base-url='.length).replace(/\/$/, '');
   const gstRateBps = gstArg ? Number(gstArg.split('=')[1]) : undefined;
   if (!xlsxPath) {
-    console.error('Usage: npx tsx scripts/import-catalogue.ts <path-to.xlsx> [--gst-bps=0] [--dry-run]');
+    console.error(
+      'Usage: npx tsx scripts/import-catalogue.ts <path-to.xlsx> [--gst-bps=0] ' +
+        '[--image-base-url=https://queziva.com/catalogue] [--dry-run]',
+    );
     process.exitCode = 1;
     return;
   }
@@ -124,7 +130,11 @@ async function main() {
       retailerId: sku,
       name: productName(title, sku),
       description: row[iDesc]?.trim() || undefined,
-      imageUrl: driveLink && /^https?:\/\//.test(driveLink) ? driveLink : undefined,
+      imageUrl: imageBaseUrl
+        ? `${imageBaseUrl}/${encodeURIComponent(sku)}.jpg`
+        : driveLink && /^https?:\/\//.test(driveLink)
+          ? driveLink
+          : undefined,
       pricePaise,
       gstRateBps: gst,
       hsnCode: '7117', // jewellery; matches the rest of the catalogue
