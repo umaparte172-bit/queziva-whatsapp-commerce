@@ -124,7 +124,7 @@ h2 { font-size: 15px; }
 .nav-count { font-size: 12px; background: var(--brand); color: #fff; border-radius: 999px; padding: 0 7px; min-width: 20px; text-align: center; }
 .sidebar-foot { margin-top: auto; padding: 12px 10px 0; border-top: 1px solid var(--border); }
 .sidebar-foot .who { font-weight: 500; }
-.main { padding: 28px 32px 60px; min-width: 0; max-width: 1400px; }
+.main { width: 100%; padding: 28px 32px 60px; min-width: 0; max-width: 1400px; margin: 0 auto; }
 .page-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
 
 @media (max-width: 860px) {
