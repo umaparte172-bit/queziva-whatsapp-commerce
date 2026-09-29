@@ -1,5 +1,5 @@
 import { ValidationError } from '../../lib/errors.js';
-import type { ButtonMessage, CtaUrlMessage, OrderDetailsMessage } from './types.js';
+import type { ButtonMessage, CtaUrlMessage, ImageMessage, OrderDetailsMessage } from './types.js';
 
 /** WhatsApp Cloud API limits for interactive messages. */
 export const LIMITS = {
@@ -52,6 +52,11 @@ export function validateCtaUrl(message: CtaUrlMessage): void {
 export function validateText(body: string): void {
   if (!body.trim()) throw new ValidationError('Message text is empty');
   checkLength(body, LIMITS.textMessage, 'Text message');
+}
+
+export function validateImage(message: ImageMessage): void {
+  if (!/^https:\/\/\S+$/.test(message.imageUrl)) throw new ValidationError('Image must use a public https:// URL');
+  checkLength(message.caption, LIMITS.bodyText, 'Image caption');
 }
 
 export function validateInteractiveBody(body: string): void {

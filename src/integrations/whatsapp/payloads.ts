@@ -2,6 +2,7 @@ import type {
   AddressPrefill,
   ButtonMessage,
   CtaUrlMessage,
+  ImageMessage,
   OrderDetailsMessage,
   OrderStatusMessage,
   TemplateMessage,
@@ -17,6 +18,14 @@ const money = (paise: number) => ({ value: paise, offset: 100 });
 
 export function textPayload(to: string, body: string) {
   return { ...base(to), type: 'text', text: { body, preview_url: /https?:\/\//.test(body) } };
+}
+
+export function imagePayload(to: string, message: ImageMessage) {
+  return {
+    ...base(to),
+    type: 'image',
+    image: { link: message.imageUrl, ...(message.caption ? { caption: message.caption } : {}) },
+  };
 }
 
 export function buttonsPayload(to: string, m: ButtonMessage) {

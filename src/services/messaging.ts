@@ -4,6 +4,7 @@ import type {
   AddressPrefill,
   ButtonMessage,
   CtaUrlMessage,
+  ImageMessage,
   OrderDetailsMessage,
   OrderStatusMessage,
   SendResult,
@@ -16,6 +17,7 @@ import { recordEvent } from './audit.js';
 
 export type OutboundMessage =
   | { kind: 'text'; body: string }
+  | ({ kind: 'image' } & ImageMessage)
   | ({ kind: 'buttons' } & ButtonMessage)
   | ({ kind: 'cta_url' } & CtaUrlMessage)
   | { kind: 'template'; template: TemplateMessage }
@@ -45,6 +47,8 @@ function dispatch(to: string, m: OutboundMessage): Promise<SendResult> {
   switch (m.kind) {
     case 'text':
       return whatsapp.sendText(to, m.body);
+    case 'image':
+      return whatsapp.sendImage(to, m);
     case 'buttons':
       return whatsapp.sendButtons(to, m);
     case 'cta_url':
@@ -65,6 +69,8 @@ function summarise(m: OutboundMessage): string {
     case 'text':
     case 'address':
       return m.body;
+    case 'image':
+      return `${m.caption ?? 'Product image'} [${m.imageUrl}]`;
     case 'buttons':
       return `${m.body} [${m.buttons.map((b) => b.title).join(' | ')}]`;
     case 'cta_url':

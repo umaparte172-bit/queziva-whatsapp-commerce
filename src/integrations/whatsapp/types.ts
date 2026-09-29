@@ -26,6 +26,12 @@ export interface CtaUrlMessage {
   footer?: string;
 }
 
+/** Publicly accessible product image with optional customer-facing caption. */
+export interface ImageMessage {
+  imageUrl: string;
+  caption?: string;
+}
+
 export interface TemplateMessage {
   name: string;
   language: string;
@@ -88,6 +94,7 @@ export interface OrderStatusMessage {
 export interface WhatsAppClient {
   readonly mode: 'mock' | 'live';
   sendText(to: string, body: string): Promise<SendResult>;
+  sendImage(to: string, message: ImageMessage): Promise<SendResult>;
   sendButtons(to: string, message: ButtonMessage): Promise<SendResult>;
   sendCtaUrl(to: string, message: CtaUrlMessage): Promise<SendResult>;
   sendTemplate(to: string, template: TemplateMessage): Promise<SendResult>;

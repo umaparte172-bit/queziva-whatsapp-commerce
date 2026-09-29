@@ -217,6 +217,13 @@ function OutboundBubble(props: {
     switch (p.kind) {
       case 'text':
         return <>{p.body}</>;
+      case 'image':
+        return (
+          <>
+            <img className="bubble-product-image" src={p.imageUrl} alt="Product" />
+            {p.caption && <div>{p.caption}</div>}
+          </>
+        );
       case 'buttons':
         return (
           <>

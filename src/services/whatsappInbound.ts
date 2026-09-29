@@ -161,7 +161,16 @@ async function handleCartOrder(customer: Customer, message: InboundMessage, prof
   if (alreadyAcknowledged > 0) return;
 
   try {
-    await sendToCustomer({ customer, orderId: order.id, message: { kind: 'text', body: copy.orderReceived(order) } });
+    const body = copy.orderReceived(order);
+    const productIds = order.items.flatMap((item) => (item.productId ? [item.productId] : []));
+    const products = await prisma.product.findMany({ where: { id: { in: productIds }, imageUrl: { not: null } }, select: { id: true, imageUrl: true } });
+    const images = new Map(products.map((product) => [product.id, product.imageUrl]));
+    const imageUrl = order.items.map((item) => (item.productId ? images.get(item.productId) : null)).find(Boolean);
+    const canUseImageCaption = imageUrl && /^https:\/\/\S+$/.test(imageUrl) && body.length <= 1024;
+    const outbound = canUseImageCaption
+      ? { kind: 'image' as const, imageUrl, caption: body }
+      : { kind: 'text' as const, body };
+    await sendToCustomer({ customer, orderId: order.id, message: outbound });
   } catch {
     // Already logged on the order by sendToCustomer; the order itself is safely stored for admin review.
   }

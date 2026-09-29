@@ -71,6 +71,7 @@ describe('POST /webhooks/whatsapp', () => {
   });
 
   it('turns a catalogue cart into a NEW order and acknowledges it without asking for payment', async () => {
+    await prisma.product.update({ where: { retailerId: 'QZ-EAR-001' }, data: { imageUrl: 'https://queziva.com/catalogue/QZ-EAR-001.jpg' } });
     const res = await post(
       cartWebhook('wamid.CART1', [
         { retailerId: 'QZ-EAR-001', quantity: 2, price: 299 },
@@ -91,10 +92,12 @@ describe('POST /webhooks/whatsapp', () => {
       ['QZ-NCK-001', 1],
     ]);
 
-    // One acknowledgement, a plain text – no order_details / payment request
+    // One acknowledgement with its product image – no order_details / payment request
     expect(wa.sent).toHaveLength(1);
-    expect(wa.sent[0]).toMatchObject({ to: WA_ID, kind: 'text' });
-    const body = (wa.sent[0]!.content as { body: string }).body;
+    expect(wa.sent[0]).toMatchObject({ to: WA_ID, kind: 'image' });
+    const image = wa.sent[0]!.content as { imageUrl: string; caption: string };
+    expect(image.imageUrl).toBe('https://queziva.com/catalogue/QZ-EAR-001.jpg');
+    const body = image.caption;
     expect(body).toContain(order.requestNumber);
     expect(body).toContain('No payment is needed right now');
     expect(wa.readReceipts).toContain('wamid.CART1');
@@ -102,7 +105,7 @@ describe('POST /webhooks/whatsapp', () => {
     const messages = await prisma.message.findMany({ orderBy: { createdAt: 'asc' } });
     expect(messages.map((m) => [m.direction, m.type, m.orderId])).toEqual([
       ['INBOUND', 'order', order.id],
-      ['OUTBOUND', 'text', order.id],
+      ['OUTBOUND', 'image', order.id],
     ]);
   });
 

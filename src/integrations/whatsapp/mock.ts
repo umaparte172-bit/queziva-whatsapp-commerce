@@ -5,13 +5,14 @@ import type {
   AddressPrefill,
   ButtonMessage,
   CtaUrlMessage,
+  ImageMessage,
   OrderDetailsMessage,
   OrderStatusMessage,
   SendResult,
   TemplateMessage,
   WhatsAppClient,
 } from './types.js';
-import { validateButtons, validateCtaUrl, validateInteractiveBody, validateOrderDetails, validateText } from './validate.js';
+import { validateButtons, validateCtaUrl, validateImage, validateInteractiveBody, validateOrderDetails, validateText } from './validate.js';
 
 export const MOCK_WHATSAPP_APP_SECRET = 'mock_whatsapp_app_secret';
 export const MOCK_WHATSAPP_VERIFY_TOKEN = 'mock_whatsapp_verify_token';
@@ -19,7 +20,7 @@ export const MOCK_WHATSAPP_VERIFY_TOKEN = 'mock_whatsapp_verify_token';
 export interface MockSentMessage {
   messageId: string;
   to: string;
-  kind: 'text' | 'buttons' | 'cta_url' | 'template' | 'address' | 'order_details' | 'order_status';
+  kind: 'text' | 'image' | 'buttons' | 'cta_url' | 'template' | 'address' | 'order_details' | 'order_status';
   content: unknown;
   sentAt: Date;
 }
@@ -43,6 +44,11 @@ export class MockWhatsAppClient implements WhatsAppClient {
   async sendText(to: string, body: string) {
     validateText(body);
     return this.record(to, 'text', { body });
+  }
+
+  async sendImage(to: string, message: ImageMessage) {
+    validateImage(message);
+    return this.record(to, 'image', message);
   }
 
   async sendButtons(to: string, message: ButtonMessage) {

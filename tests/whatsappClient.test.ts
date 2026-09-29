@@ -71,6 +71,26 @@ describe('WhatsAppCloudClient', () => {
     });
   });
 
+  it('sends a product image and caption together', async () => {
+    const { f, wa } = client([ok('wamid.IMG1')]);
+    const result = await wa.sendImage('919876543210', {
+      imageUrl: 'https://queziva.com/catalogue/QZ-EAR-001.jpg',
+      caption: 'Thank you for your order request',
+    });
+
+    expect(result.messageId).toBe('wamid.IMG1');
+    expect(f.calls[0]!.body).toEqual({
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: '919876543210',
+      type: 'image',
+      image: {
+        link: 'https://queziva.com/catalogue/QZ-EAR-001.jpg',
+        caption: 'Thank you for your order request',
+      },
+    });
+  });
+
   it('builds reply-button messages', async () => {
     const { f, wa } = client();
     await wa.sendButtons('919876543210', {

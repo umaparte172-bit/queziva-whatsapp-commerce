@@ -6,6 +6,7 @@ import {
   addressPayload,
   buttonsPayload,
   ctaUrlPayload,
+  imagePayload,
   markReadPayload,
   orderDetailsPayload,
   orderStatusPayload,
@@ -16,13 +17,14 @@ import type {
   AddressPrefill,
   ButtonMessage,
   CtaUrlMessage,
+  ImageMessage,
   OrderDetailsMessage,
   OrderStatusMessage,
   SendResult,
   TemplateMessage,
   WhatsAppClient,
 } from './types.js';
-import { validateButtons, validateCtaUrl, validateInteractiveBody, validateOrderDetails, validateText } from './validate.js';
+import { validateButtons, validateCtaUrl, validateImage, validateInteractiveBody, validateOrderDetails, validateText } from './validate.js';
 
 interface GraphError {
   message?: string;
@@ -138,6 +140,11 @@ export class WhatsAppCloudClient implements WhatsAppClient {
   async sendText(to: string, body: string) {
     validateText(body);
     return this.send(textPayload(to, body));
+  }
+
+  async sendImage(to: string, message: ImageMessage) {
+    validateImage(message);
+    return this.send(imagePayload(to, message));
   }
 
   async sendButtons(to: string, message: ButtonMessage) {
