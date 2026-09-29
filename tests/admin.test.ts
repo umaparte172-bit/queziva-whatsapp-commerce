@@ -1,5 +1,7 @@
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { unlink } from 'node:fs/promises';
+import path from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.js';
 import { hashPassword, signSession, verifyPassword, verifySession } from '../src/lib/auth.js';
@@ -114,6 +116,42 @@ describe('admin authentication', () => {
       body: 'note=hi',
     });
     expect(res.status).toBe(415);
+  });
+});
+
+describe('product image upload', () => {
+  it('stores a valid image and rejects invalid image bytes', async () => {
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
+    const uploaded = await fetch(`${baseUrl}/api/admin/product-images`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'image/png', Cookie: cookie },
+      body: png,
+    });
+    expect(uploaded.status).toBe(201);
+    const result = (await uploaded.json()) as { imageUrl: string };
+    expect(result.imageUrl).toMatch(/\/catalogue\/uploads\/[0-9a-f-]+\.png$/);
+
+    const filename = path.basename(new URL(result.imageUrl).pathname);
+    try {
+      const invalid = await fetch(`${baseUrl}/api/admin/product-images`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'image/png', Cookie: cookie },
+        body: Buffer.from('not an image'),
+      });
+      expect(invalid.status).toBe(400);
+      expect((await invalid.json()).error.code).toBe('INVALID_IMAGE');
+    } finally {
+      await unlink(path.resolve(process.cwd(), 'public', 'catalogue', 'uploads', filename));
+    }
+  });
+
+  it('requires an admin session', async () => {
+    const res = await fetch(`${baseUrl}/api/admin/product-images`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'image/png' },
+      body: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    });
+    expect(res.status).toBe(401);
   });
 });
 

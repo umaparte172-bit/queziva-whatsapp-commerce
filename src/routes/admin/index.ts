@@ -13,7 +13,8 @@ export const adminApiRouter = Router();
 adminApiRouter.use((req, res, next) => {
   res.setHeader('Cache-Control', 'no-store');
   // With SameSite=Strict session cookies, insisting on JSON for writes closes off form-based CSRF.
-  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && !req.is('application/json')) {
+  const imageUpload = req.path === '/product-images' && ['image/jpeg', 'image/png', 'image/webp'].some((type) => req.is(type));
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && !req.is('application/json') && !imageUpload) {
     next(new AppError('Requests must be sent as JSON', 415, 'UNSUPPORTED_MEDIA_TYPE'));
     return;
   }

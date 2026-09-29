@@ -54,6 +54,28 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return json as T;
 }
 
+async function uploadProductImage(file: File): Promise<{ imageUrl: string }> {
+  let res: Response;
+  try {
+    res = await fetch('/api/admin/product-images', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': file.type },
+      body: file,
+    });
+  } catch {
+    throw new ApiError('Cannot reach the server. Check your connection and try again.', 0, 'NETWORK');
+  }
+
+  const json = await res.json().catch(() => null);
+  if (!res.ok) {
+    const error = json?.error ?? {};
+    if (res.status === 401) unauthenticatedListeners.forEach((listener) => listener());
+    throw new ApiError(error.message ?? `Upload failed (${res.status})`, res.status, error.code ?? 'ERROR');
+  }
+  return json as { imageUrl: string };
+}
+
 const qs = (params: Record<string, string | number | boolean | undefined>) => {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
@@ -119,6 +141,7 @@ export const api = {
 
   products: (p: { q?: string; includeInactive?: boolean } = {}) =>
     request<{ products: Product[] }>('GET', `/products${qs({ q: p.q, includeInactive: p.includeInactive ? 1 : undefined })}`),
+  uploadProductImage,
   createProduct: (input: Partial<ProductInput>) => request<{ product: Product }>('POST', '/products', input),
   updateProduct: (id: string, input: Partial<ProductInput>) => request<{ product: Product }>('PATCH', `/products/${id}`, input),
 };

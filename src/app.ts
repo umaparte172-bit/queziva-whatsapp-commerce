@@ -90,6 +90,10 @@ export function createApp() {
       res.status(400).json({ error: { code: 'INVALID_JSON', message: 'Request body is not valid JSON' } });
       return;
     }
+    if (err?.type === 'entity.too.large') {
+      res.status(413).json({ error: { code: 'PAYLOAD_TOO_LARGE', message: 'The uploaded file is too large' } });
+      return;
+    }
     logger.error({ err, path: req.path }, 'unhandled error');
     res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Something went wrong' } });
   };

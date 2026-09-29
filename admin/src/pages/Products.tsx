@@ -182,12 +182,24 @@ function ProductForm({ product, onClose, onSaved }: { product: Product | null; o
     breadthCm: String(product?.breadthCm ?? 10),
     heightCm: String(product?.heightCm ?? 5),
   });
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [localPreview, setLocalPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const set = (key: keyof typeof form) => (e: { target: { value: string } }) => {
     setForm({ ...form, [key]: e.target.value });
     setError(null); // an old message would point at a field that's already been fixed
   };
+
+  useEffect(() => {
+    if (!imageFile) {
+      setLocalPreview(null);
+      return;
+    }
+    const preview = URL.createObjectURL(imageFile);
+    setLocalPreview(preview);
+    return () => URL.revokeObjectURL(preview);
+  }, [imageFile]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -196,11 +208,17 @@ function ProductForm({ product, onClose, onSaved }: { product: Product | null; o
     const numbers = { stock: form.stock, gst: form.gst, weight: form.weightGrams, length: form.lengthCm, breadth: form.breadthCm, height: form.heightCm };
     const blank = Object.entries(numbers).find(([, v]) => v.trim() === '' || !Number.isFinite(Number(v)));
     if (blank) return setError(`Enter a number for ${blank[0] === 'gst' ? 'GST %' : blank[0]}`);
-    const input: Partial<ProductInput> = {
+    if (imageFile && !['image/jpeg', 'image/png', 'image/webp'].includes(imageFile.type)) return setError('Choose a JPG, PNG or WebP image');
+    if (imageFile && imageFile.size > 5 * 1024 * 1024) return setError('The product image must be 5 MB or smaller');
+    setBusy(true);
+    setError(null);
+    try {
+      const imageUrl = imageFile ? (await api.uploadProductImage(imageFile)).imageUrl : form.imageUrl.trim() || null;
+      const input: Partial<ProductInput> = {
       sku: form.sku.trim(),
       retailerId: form.retailerId.trim() || undefined,
       name: form.name.trim(),
-      imageUrl: form.imageUrl.trim() || null,
+      imageUrl,
       pricePaise,
       stock: Number(form.stock),
       gstRateBps: Math.round(Number(form.gst) * 100),
@@ -209,10 +227,7 @@ function ProductForm({ product, onClose, onSaved }: { product: Product | null; o
       lengthCm: Number(form.lengthCm),
       breadthCm: Number(form.breadthCm),
       heightCm: Number(form.heightCm),
-    };
-    setBusy(true);
-    setError(null);
-    try {
+      };
       // Editing sends only what changed: stock in particular moves with every sale, and writing
       // back the number this dialog was opened with would undo those sales.
       const changes = product
@@ -239,8 +254,27 @@ function ProductForm({ product, onClose, onSaved }: { product: Product | null; o
           <input id="p-name" className="input" required value={form.name} onChange={set('name')} autoFocus />
         </div>
         <div className="field">
-          <label htmlFor="p-image">Image URL</label>
-          <input id="p-image" className="input" type="url" placeholder="https://queziva.com/catalogue/SKU.jpg" value={form.imageUrl} onChange={set('imageUrl')} />
+          <label>Product image</label>
+          <div className="product-image-upload">
+            <ProductThumbnail imageUrl={(localPreview ?? form.imageUrl.trim()) || null} name={form.name || 'Product'} />
+            <div className="stack product-image-controls">
+              <input
+                id="p-image-file"
+                className="image-file-input"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(e) => {
+                  setImageFile(e.target.files?.[0] ?? null);
+                  setError(null);
+                }}
+              />
+              <label className="btn product-image-picker" htmlFor="p-image-file">Choose image</label>
+              <span className="muted product-image-help">{imageFile ? imageFile.name : 'JPG, PNG or WebP · max 5 MB'}</span>
+              {imageFile && <button type="button" className="btn-link product-image-clear" onClick={() => setImageFile(null)}>Remove selected image</button>}
+            </div>
+          </div>
+          <label htmlFor="p-image">Or paste an image URL</label>
+          <input id="p-image" className="input" type="url" placeholder="https://queziva.com/catalogue/SKU.jpg" value={form.imageUrl} onChange={set('imageUrl')} disabled={Boolean(imageFile)} />
         </div>
         <div className="row" style={{ alignItems: 'flex-start' }}>
           <div className="field" style={{ flex: 1 }}>

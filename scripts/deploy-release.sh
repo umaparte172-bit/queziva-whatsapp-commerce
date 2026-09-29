@@ -20,6 +20,8 @@ fi
 mkdir -p "$release_dir"
 tar -xzf "$archive" -C "$release_dir"
 ln -sfn "$deploy_root/shared/.env" "$release_dir/.env"
+mkdir -p "$deploy_root/shared/product-images" "$release_dir/public/catalogue"
+ln -sfn "$deploy_root/shared/product-images" "$release_dir/public/catalogue/uploads"
 
 cd "$release_dir"
 npm ci
